@@ -1,0 +1,36 @@
+env: dev
+
+tables:
+  sales:
+    type: file
+
+    source:
+      format: csv
+      path: /data/sales/
+      options:
+        header: true
+        mode: PERMISSIVE
+
+    schema:
+      columns:
+        - source: sale_id
+          target: id
+          type: string
+
+        - source: sale_amount
+          target: amount
+          type: double
+
+        - source: sale_date
+          target: date
+          type: date
+
+    target:
+      name: sales_table
+      partition_cols: ["date"]
+
+    audit:
+      enabled: true
+
+    reject:
+      table: sales_rejected
