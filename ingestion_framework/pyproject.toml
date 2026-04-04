@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metadata-ingestion-framework"
+version = "2.3.0"
+description = "Metadata-driven ingestion framework for Databricks Spark Declarative Pipelines"
+readme = "README.md"
+authors = [
+    {name = "Databricks Data Engineer", email = "gaurangnshah@gmail.com"}
+]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
+]
+excel = [
+    "openpyxl>=3.0",  # For Excel file handling if needed
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/metadata-ingestion-framework"
+Documentation = "https://github.com/your-org/metadata-ingestion-framework/wiki"
+Repository = "https://github.com/your-org/metadata-ingestion-framework"
+
+[tool.setuptools]
+packages = ["framework", "framework.core", "framework.readers", "framework.notifications", "framework.utils"]
+
+[tool.setuptools.package-data]
+framework = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=framework --cov-report=term-missing"

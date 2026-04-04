@@ -1,0 +1,15 @@
+# Include documentation
+include README.md
+include LICENSE
+
+# Include configuration examples
+recursive-include examples *.py
+recursive-include examples *.yaml
+
+# Include type hints
+recursive-include framework py.typed
+
+# Exclude test files and cache
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store

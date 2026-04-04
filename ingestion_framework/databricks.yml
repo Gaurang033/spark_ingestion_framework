@@ -1,0 +1,101 @@
+# Databricks Asset Bundle Configuration
+# Documentation: https://docs.databricks.com/dev-tools/bundles/
+
+bundle:
+  name: metadata-ingestion-framework
+
+# Variables that can be overridden per environment
+variables:
+  catalog:
+    description: "Unity Catalog name"
+    default: "main"
+  schema:
+    description: "Schema name for ingestion tables"
+    default: "bronze"
+
+# Artifacts - Bundle will automatically build the wheel during deployment
+artifacts:
+  metadata_ingestion_framework_whl:
+    type: whl
+    # Build command - executed automatically during 'databricks bundle deploy'
+    build: python -m build
+    # Source path
+    path: .
+
+# Deployment targets
+targets:
+  # Development environment
+  dev:
+    mode: development
+    variables:
+      catalog: demo
+    default: true
+    workspace:
+      host: https://dbc-dadddf44-154a.cloud.databricks.com/
+      artifact_path: /Volumes/demo/raw/files/${workspace.current_user.short_name}/
+    artifacts:
+      metadata_ingestion_framework_whl:
+        type: whl
+        # Build command - executed automatically during 'databricks bundle deploy'
+        build: python -m build
+        # Source path
+        path: .
+
+    
+    # Optional: Run as current user
+    run_as:
+      user_name: ${workspace.current_user.userName}
+
+  # Staging environment
+  staging:
+    mode: development
+    workspace:
+      host: https://adb-<workspace-id>.azuredatabricks.net
+      root_path: /Shared/.bundles/${bundle.name}/staging
+    
+    artifacts:
+      metadata_ingestion_framework_whl:
+        path: /Workspace/Shared/.bundles/${bundle.name}/staging/artifacts
+
+  # Production environment  
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-<workspace-id>.azuredatabricks.net
+      root_path: /Shared/.bundles/${bundle.name}/prod
+    
+    artifacts:
+      metadata_ingestion_framework_whl:
+        path: /Workspace/Shared/.bundles/${bundle.name}/prod/artifacts
+
+    # Require service principal for production
+    run_as:
+      service_principal_name: "<service-principal-id>"
+    
+    # Optional: Require approval for production deployments
+    permissions:
+      - level: CAN_MANAGE
+        service_principal_name: "<admin-service-principal-id>"
+
+# Optional: Define pipeline resources that use the wheel
+# resources:
+#   pipelines:
+#     ingestion_pipeline:
+#       name: "Metadata Ingestion - ${bundle.target}"
+#       catalog: ${var.catalog}
+#       target: ${var.schema}
+#       
+#       # Reference the built wheel
+#       libraries:
+#         - whl: ../artifacts/metadata_ingestion_framework_whl/*.whl
+#       
+#       # Pipeline configuration
+#       configuration:
+#         "pipelines.useV2DetailsApi": "true"
+#       
+#       clusters:
+#         - label: default
+#           autoscale:
+#             min_workers: 1
+#             max_workers: 5
+#             mode: ENHANCED
