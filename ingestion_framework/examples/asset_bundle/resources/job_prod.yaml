@@ -1,0 +1,57 @@
+resources:
+  jobs:
+    ingestion_job_prod:
+      name: ingestion_framework_job_${var.environment}
+      
+      tasks:
+        - task_key: run_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.ingestion_framework_prod.id}
+            full_refresh: false
+        
+        - task_key: record_audit_stats
+          depends_on:
+            - task_key: run_pipeline
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            query:
+              query: |
+                USE CATALOG ${var.catalog};
+                USE SCHEMA ${var.schema};
+                
+                INSERT INTO ingestion_audit_info
+                SELECT * FROM audit_ingestion_log;
+        
+        - task_key: data_quality_check
+          depends_on:
+            - task_key: record_audit_stats
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            query:
+              query: |
+                USE CATALOG ${var.catalog};
+                USE SCHEMA ${var.schema};
+                
+                -- Alert if reject rate > 5%
+                SELECT 
+                  table_name,
+                  ingestion_id,
+                  records_rejected * 100.0 / NULLIF(records_inserted + records_rejected, 0) as reject_rate_pct
+                FROM ingestion_audit_info
+                WHERE ingestion_id = (SELECT MAX(ingestion_id) FROM ingestion_audit_info)
+                  AND records_rejected * 100.0 / NULLIF(records_inserted + records_rejected, 0) > 5.0;
+      
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: America/Los_Angeles
+        pause_status: UNPAUSED
+      
+      email_notifications:
+        on_failure:
+          - dataeng-prod@company.com
+          - alerts@company.com
+        on_success:
+          - dataeng-prod@company.com
+      
+      max_concurrent_runs: 1
+      timeout_seconds: 7200

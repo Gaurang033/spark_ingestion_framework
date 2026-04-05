@@ -1,0 +1,35 @@
+resources:
+  jobs:
+    ingestion_job_staging:
+      name: ingestion_framework_job_${var.environment}
+      
+      tasks:
+        - task_key: run_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.ingestion_framework_staging.id}
+            full_refresh: false
+        
+        - task_key: record_audit_stats
+          depends_on:
+            - task_key: run_pipeline
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            query:
+              query: |
+                USE CATALOG ${var.catalog};
+                USE SCHEMA ${var.schema};
+                
+                INSERT INTO ingestion_audit_info
+                SELECT * FROM audit_ingestion_log;
+      
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: America/Los_Angeles
+        pause_status: PAUSED
+      
+      email_notifications:
+        on_failure:
+          - dataeng-staging@company.com
+      
+      max_concurrent_runs: 1
+      timeout_seconds: 3600

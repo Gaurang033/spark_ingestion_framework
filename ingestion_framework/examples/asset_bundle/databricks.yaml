@@ -1,0 +1,53 @@
+bundle:
+  name: ingestion_framework
+
+include:
+  - resources/*.yml
+
+workspace:
+  host: ${var.workspace_url}
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${var.workspace_url}
+    variables:
+      catalog: dev
+      schema: bronze
+      environment: dev
+      volume_path: /Volumes/dev/raw/files
+      warehouse_id: your_warehouse_id
+  
+  staging:
+    mode: development
+    workspace:
+      host: ${var.workspace_url}
+    variables:
+      catalog: staging
+      schema: bronze
+      environment: staging
+      volume_path: /Volumes/staging/raw/files
+      warehouse_id: your_warehouse_id
+  
+  prod:
+    mode: production
+    workspace:
+      host: ${var.workspace_url}
+    variables:
+      catalog: prod
+      schema: bronze
+      environment: prod
+      volume_path: /Volumes/prod/raw/files
+      warehouse_id: your_warehouse_id
+    run_as:
+      service_principal_name: ${var.prod_service_principal}
+
+variables:
+  workspace_url:
+    description: Databricks workspace URL
+    default: https://dbc-dadddf44-154a.cloud.databricks.com/
+  prod_service_principal:
+    description: Service principal for production deployment
+    default: prod-ingestion-sp

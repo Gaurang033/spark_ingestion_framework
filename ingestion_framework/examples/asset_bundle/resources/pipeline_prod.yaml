@@ -1,0 +1,32 @@
+esources:
+  pipelines:
+    ingestion_framework_prod:
+      name: ingestion_framework_${var.environment}
+      catalog: ${var.catalog}
+      target: ${var.schema}
+      
+      libraries:
+        - file:
+            path: ${workspace.file_path}/examples/ingest_customer.py
+        - file:
+            path: ${workspace.file_path}/examples/audit_metadata_setup.py
+      
+      configuration:
+        pipelines.environment: ${var.environment}
+        pipelines.volume_path: ${var.volume_path}
+      
+      continuous: false
+      photon: true
+      serverless: true
+      development: false
+      channel: CURRENT
+      edition: ADVANCED
+      
+      notifications:
+        - alerts:
+            - on-update-failure
+            - on-update-success
+            - on-flow-failure
+          email_recipients:
+            - dataeng-prod@company.com
+            - alerts@company.com
