@@ -31,6 +31,7 @@ def metadata_driven_table(
     3. Uses factory pattern to create appropriate source reader
     4. Creates target streaming table with audit columns
     5. Creates corrupt records table (if enabled)
+    6. Logs corrupt record threshold for monitoring
     
     The @dp.table decorator handles all checkpoint management automatically.
     
@@ -53,6 +54,7 @@ def metadata_driven_table(
           table: customer
           bad_records:
             table_suffix: _corrupt_records
+            corrupt_record_threshold: 10  # 0=strict, >0=warning
           audit_columns:
             ingestion_id: __ingestion_id
             processed_timestamp: __processed_timestamp
@@ -76,8 +78,10 @@ def metadata_driven_table(
         target_schema = target_config.get('schema', '')
         target_table = target_config.get('table', '')
         
-        # Build table name without catalog (pipeline settings define the catalog)
-        if target_schema:
+        # Build fully qualified table name from YAML config
+        if target_catalog and target_schema:
+            full_table_name = f"{target_catalog}.{target_schema}.{target_table}"
+        elif target_schema:
             full_table_name = f"{target_schema}.{target_table}"
         else:
             full_table_name = target_table
@@ -85,12 +89,19 @@ def metadata_driven_table(
         # Get bad records configuration
         bad_records_config = ConfigManager.get_bad_records_config(config)
         corrupt_table_suffix = bad_records_config.get('table_suffix', '_corrupt_records')
+        corrupt_record_threshold = bad_records_config.get('corrupt_record_threshold', 0)
         corrupt_table_name = f"{target_table}{corrupt_table_suffix}"
         
-        if target_schema:
+        if target_catalog and target_schema:
+            full_corrupt_table_name = f"{target_catalog}.{target_schema}.{corrupt_table_name}"
+        elif target_schema:
             full_corrupt_table_name = f"{target_schema}.{corrupt_table_name}"
         else:
             full_corrupt_table_name = corrupt_table_name
+
+        # Get corrupt column name from spark config
+        spark_options = ConfigManager.get_spark_options(config)
+        corrupt_col = spark_options.get('columnNameOfCorruptRecord', '_corrupt_record')
 
         # Common function to get next ingestion_id, read files, and add audit columns
         def get_base_df() -> DataFrame:
@@ -109,17 +120,25 @@ def metadata_driven_table(
             
             return df
         
+        # Log threshold configuration
+        if corrupt_record_threshold == 0:
+            print(f"✓ Corrupt record threshold: 0% (strict mode - manual monitoring required)")
+        else:
+            print(f"✓ Corrupt record threshold: {corrupt_record_threshold}% (warning mode - monitoring required)")
+        
         # Create the target table function
         @dp.table(
             name=full_table_name,
-            comment=f"Metadata-driven table from {yaml_config_path}"
+            comment=f"Metadata-driven table from {yaml_config_path} (threshold: {corrupt_record_threshold}%)"
         )
         @wraps(func)
         def target_table_func():
             df = get_base_df()
-            spark_options = ConfigManager.get_spark_options(config)
-            corrupt_col = spark_options.get('columnNameOfCorruptRecord', '_corrupt_record')
             if corrupt_col in df.columns:
+                if corrupt_record_threshold == 0:
+                    print(f"⚠ STRICT MODE: Pipeline should fail if ANY corrupt records exist. Monitor {full_corrupt_table_name}")
+                elif corrupt_record_threshold > 0:
+                    print(f"⚠ WARNING MODE: Up to {corrupt_record_threshold}% corrupt records allowed. Monitor {full_corrupt_table_name}")
                 df = df.filter(col(corrupt_col).isNull()).drop(corrupt_col)
             return df
         
@@ -131,8 +150,6 @@ def metadata_driven_table(
             )
             def corrupt_records_table_func():
                 df = get_base_df()
-                spark_options = ConfigManager.get_spark_options(config)
-                corrupt_col = spark_options.get('columnNameOfCorruptRecord', '_corrupt_record')
                 if corrupt_col in df.columns:
                     df = df.filter(col(corrupt_col).isNotNull())
                 else:

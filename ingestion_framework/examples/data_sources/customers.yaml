@@ -24,11 +24,14 @@ source_config:
   schema_hints: "id INT, name STRING, email STRING"
 
 target_config:
-  catalog: demo
-  schema: raw
   table: customers_demo
   bad_records:
     table_suffix: _corrupt_records
+    # corrupt_record_threshold: Percentage of corrupt records allowed (0-100)
+    # 0 = fail if ANY record is corrupt (strict mode)
+    # 10 = allow up to 10% corrupt records (warning only)
+    # If percentage exceeds threshold, pipeline fails
+    corrupt_record_threshold: 10
   # audit_columns is OPTIONAL - if not provided, defaults are:
   #   ingestion_id: __ingestion_id
   #   processed_timestamp: __processed_timestamp

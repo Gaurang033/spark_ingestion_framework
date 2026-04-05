@@ -1,7 +1,7 @@
 from framework import metadata_driven_table
 
 @metadata_driven_table(
-    yaml_config_path='../data_sources/customers.yaml',
+    yaml_config_path='./data_sources/customers.yaml',
     archive_files=False
 )
 def ingest_customer_table():
