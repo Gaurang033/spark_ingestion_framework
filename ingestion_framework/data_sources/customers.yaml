@@ -26,7 +26,7 @@ source_config:
 target_config:
   catalog: demo
   schema: raw
-  table: customers
+  table: customers_demo
   bad_records:
     table_suffix: _corrupt_records
   # audit_columns is OPTIONAL - if not provided, defaults are:

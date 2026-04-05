@@ -50,7 +50,7 @@ class BaseFileReader(SourceReader):
             ingestion_id: Ingestion ID to use in folder name
             
         Returns:
-            Archive location path where files were moved
+            Archive location path where files were moved, or source location if no files to archive
         """
         archive_location = f"{archive_base}/ingestion_id={ingestion_id}"
         
@@ -58,32 +58,34 @@ class BaseFileReader(SourceReader):
             # Use dbutils to list and move files
             files = dbutils.fs.ls(source_location)
             
-            if len(files) == 0:
+            # Filter to only actual files (not directories)
+            actual_files = [f for f in files if not f.isDir()]
+            
+            if len(actual_files) == 0:
                 print(f"⚠ No files found in {source_location}")
-                return archive_location
+                return source_location
             
             # Create archive directory
             dbutils.fs.mkdirs(archive_location)
             print(f"✓ Created archive directory: {archive_location}")
             
             # Move each file to archive location
-            for file_info in files:
-                if not file_info.isDir():
-                    source_file = file_info.path
-                    file_name = os.path.basename(source_file)
-                    dest_file = f"{archive_location}/{file_name}"
-                    
-                    # Move file
-                    dbutils.fs.mv(source_file, dest_file)
-                    print(f"✓ Archived: {file_name} -> {archive_location}")
+            for file_info in actual_files:
+                source_file = file_info.path
+                file_name = os.path.basename(source_file)
+                dest_file = f"{archive_location}/{file_name}"
+                
+                # Move file
+                dbutils.fs.mv(source_file, dest_file)
+                print(f"✓ Archived: {file_name} -> {archive_location}")
             
-            print(f"✓ Archived {len([f for f in files if not f.isDir()])} file(s) to {archive_location}")
+            print(f"✓ Archived {len(actual_files)} file(s) to {archive_location}")
+            return archive_location
             
         except Exception as e:
             print(f"⚠ Warning during archival: {e}")
-            # Continue processing even if archival fails
-        
-        return archive_location
+            # If archival fails, read from source location
+            return source_location
     
     def _apply_column_mapping(self, df: DataFrame) -> DataFrame:
         """
@@ -127,7 +129,7 @@ class BaseFileReader(SourceReader):
             
             # Archive files and get new location
             location = self._archive_files_before_processing(location, archive_base, self.ingestion_id)
-            print(f"✓ Reading from archived location: {location}")
+            print(f"✓ Reading from location: {location}")
         
         return location
     
@@ -146,6 +148,12 @@ class BaseFileReader(SourceReader):
         
         # Start with basic readStream format
         reader = spark.readStream.format(self.FILE_FORMAT)
+        
+        # Apply schema if provided
+        schema_hints = self.source_config.get('schema_hints')
+        if schema_hints:
+            reader = reader.schema(schema_hints)
+            print(f"✓ Applied schema: {schema_hints}")
         
         # Apply Spark options from config
         spark_options = ConfigManager.get_spark_options(self.config)
